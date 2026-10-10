@@ -1,0 +1,176 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (optional)
+    //   - email: string (required, email format)
+    //   - curfewTime: string (optional, HH:mm)
+    //   - sponsorEmail: string (optional, email format)
+    //   - caseworkerEmail: string (optional, email format)
+    //   - role: string (required, enum: ['user', 'admin'])
+    //
+    // Collection: users/{uid}/checklist
+    // Fields:
+    //   - userId: string (required, matches parent uid)
+    //   - title: string (required, 1-100 chars)
+    //   - status: string (required, enum: ['pending', 'in-progress', 'completed'])
+    //   - category: string (required, enum: ['ID', 'Benefits', 'Legal', 'Other'])
+    //   - notes: string (optional, < 500 chars)
+    //
+    // Collection: users/{uid}/appointments
+    // Fields:
+    //   - userId: string (required, matches parent uid)
+    //   - title: string (required, 1-100 chars)
+    //   - startTime: string (required, ISO 8601)
+    //   - endTime: string (optional, ISO 8601)
+    //   - location: string (optional, < 200 chars)
+    //   - type: string (required, enum: ['PO', 'Job', 'Medical', 'Other'])
+    //
+    // Collection: users/{uid}/jobLeads
+    // Fields:
+    //   - userId: string (required, matches parent uid)
+    //   - company: string (required, 1-100 chars)
+    //   - position: string (required, 1-100 chars)
+    //   - status: string (required, enum: ['new', 'applied', 'interviewing', 'hired', 'rejected'])
+    //
+    // Collection: users/{uid}/checkins
+    // Fields:
+    //   - userId: string (required, matches parent uid)
+    //   - timestamp: string (required, ISO 8601)
+    //   - mood: string (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "Msbgoins@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'displayName', 'email', 'curfewTime', 'homeLocation', 'sponsorEmail', 'caseworkerEmail', 'role']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['user', 'admin'] &&
+             (!('curfewTime' in data) || (data.curfewTime is string && data.curfewTime.matches("^\\d{2}:\\d{2}$")));
+    }
+
+    function isValidChecklistItem(data, userId) {
+      return hasOnlyAllowedFields(['userId', 'title', 'status', 'category', 'notes']) &&
+             data.userId == userId &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.status in ['pending', 'in-progress', 'completed'] &&
+             data.category in ['ID', 'Benefits', 'Legal', 'Other'];
+    }
+
+    function isValidAppointment(data, userId) {
+      return hasOnlyAllowedFields(['userId', 'title', 'startTime', 'endTime', 'location', 'type', 'notes']) &&
+             data.userId == userId &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             isValidDateString(data.startTime) &&
+             data.type in ['PO', 'Job', 'Medical', 'Other'];
+    }
+
+    function isValidJobLead(data, userId) {
+      return hasOnlyAllowedFields(['userId', 'company', 'position', 'status', 'source', 'notes', 'followUpDate']) &&
+             data.userId == userId &&
+             data.company is string && data.company.size() > 0 &&
+             data.position is string && data.position.size() > 0 &&
+             data.status in ['applied', 'interviewing', 'hired', 'rejected', 'new'];
+    }
+
+    function isValidCheckIn(data, userId) {
+      return hasOnlyAllowedFields(['userId', 'timestamp', 'mood', 'challenges', 'successes', 'location']) &&
+             data.userId == userId &&
+             isValidDateString(data.timestamp) &&
+             data.mood is string;
+    }
+
+    function isValidBenefit(data, userId) {
+      return hasOnlyAllowedFields(['userId', 'name', 'status', 'renewalDate', 'notes']) &&
+             data.userId == userId &&
+             data.name is string && data.name.size() > 0 &&
+             data.status in ['eligible', 'applied', 'active', 'denied', 'expired'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(uid) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+
+      match /checklist/{itemId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isOwner(uid) && isValidChecklistItem(request.resource.data, uid);
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      match /appointments/{appId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isOwner(uid) && isValidAppointment(request.resource.data, uid);
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      match /jobLeads/{leadId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isOwner(uid) && isValidJobLead(request.resource.data, uid);
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      match /checkins/{checkinId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid) && isValidCheckIn(request.resource.data, uid);
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      match /benefits/{benefitId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isOwner(uid) && isValidBenefit(request.resource.data, uid);
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

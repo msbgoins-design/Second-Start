@@ -1,0 +1,5 @@
+{
+  "name": "Second Start",
+  "description": "A reentry life-management app for people leaving incarceration, featuring ID checklists, appointment tracking, job leads, and curfew-safe routing.",
+  "requestFramePermissions": ["geolocation"]
+}

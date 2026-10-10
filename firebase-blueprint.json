@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "curfewTime": { "type": "string", "description": "HH:mm format" },
+        "homeLocation": { "type": "object", "properties": { "lat": { "type": "number" }, "lng": { "type": "number" } } },
+        "sponsorEmail": { "type": "string" },
+        "caseworkerEmail": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] }
+      },
+      "required": ["uid", "email"]
+    },
+    "ChecklistItem": {
+      "title": "ChecklistItem",
+      "description": "ID document or task",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "in-progress", "completed"] },
+        "category": { "type": "string", "enum": ["ID", "Benefits", "Legal", "Other"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["userId", "title", "status"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled event",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "type": { "type": "string", "enum": ["PO", "Job", "Medical", "Other"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["userId", "title", "startTime"]
+    },
+    "JobLead": {
+      "title": "JobLead",
+      "description": "Potential job opportunity",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "company": { "type": "string" },
+        "position": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "applied", "interviewing", "hired", "rejected"] },
+        "source": { "type": "string" },
+        "notes": { "type": "string" },
+        "followUpDate": { "type": "string", "format": "date" }
+      },
+      "required": ["userId", "company", "position", "status"]
+    },
+    "CheckIn": {
+      "title": "CheckIn",
+      "description": "Daily or weekly check-in log",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "mood": { "type": "string" },
+        "challenges": { "type": "string" },
+        "successes": { "type": "string" },
+        "location": { "type": "object", "properties": { "lat": { "type": "number" }, "lng": { "type": "number" } } }
+      },
+      "required": ["userId", "timestamp"]
+    },
+    "Benefit": {
+      "title": "Benefit",
+      "description": "Public benefits tracking",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["eligible", "applied", "active", "denied", "expired"] },
+        "renewalDate": { "type": "string", "format": "date" },
+        "notes": { "type": "string" }
+      },
+      "required": ["userId", "name", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/users/{uid}/checklist": { "schema": "ChecklistItem", "description": "User's ID/Benefits checklist" },
+    "/users/{uid}/appointments": { "schema": "Appointment", "description": "User's calendar" },
+    "/users/{uid}/jobLeads": { "schema": "JobLead", "description": "User's job search" },
+    "/users/{uid}/checkins": { "schema": "CheckIn", "description": "User's check-in logs" },
+    "/users/{uid}/benefits": { "schema": "Benefit", "description": "User's benefits tracking" }
+  }
+}
