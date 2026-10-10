@@ -1,1 +1,19 @@
 @import "tailwindcss";
+/* Animated Card Glows for Focus Actions */
+.hover-glow {
+  @apply transition-all duration-300 ease-in-out hover:-translate-y-0.5;
+}
+.hover-glow:hover {
+  box-shadow: 0 10px 20px -5px rgba(2, 132, 199, 0.1), 0 0 15px rgba(52, 211, 153, 0.05);
+}
+
+/* Bright focus accents */
+.gradient-badge-mint {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.1) 0%, rgba(16, 185, 129, 0.15) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.gradient-badge-sky {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(2, 132, 199, 0.15) 100%);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
